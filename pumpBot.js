@@ -175,7 +175,18 @@ function pollOrder(orderUUID) {
             filledPrice = data.result.PricePerUnit;
             console.log(`ORDER FILLED at Ƀ${displaySats(data.result.PricePerUnit)}!`);
             clearInterval(buyOrderPoll);
-            sellPoll = setInterval(sell, 8000);
+            readline.emitKeypressEvents(process.stdin);
+            process.stdin.setRawMode(true);
+            process.stdin.on('keypress', (str, key) => {
+              if (key.ctrl && key.name === 'c') {
+                process.exit();
+              } else if (key.ctrl && key.name === 's') {
+                console.log('PANIC BUTTON DETECTED, SELLING IMMEDIATELY');
+                console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+                sellLow();
+              }
+            });
+            sellPoll = setInterval(sell, 4000);
           } else {
             exit(`ORDER FILLED at Ƀ${displaySats(data.result.PricePerUnit)}!`);
           }
@@ -192,7 +203,19 @@ function purchase() {
   if(config.fake_buy) {
     filledPrice = latestAsk;
     console.log(`ORDER FILLED at Ƀ${displaySats(filledPrice)}!`);
-    sellPoll = setInterval(sell, 8000);
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.on('keypress', (str, key) => {
+      if (key.ctrl && key.name === 'c') {
+        process.exit();
+      } else if (key.ctrl && key.name === 's') {
+        console.log('PANIC BUTTON DETECTED, SELLING IMMEDIATELY');
+        console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+        console.log(`\n\nBut not really because this was a fake buy`);
+        process.exit();
+      }
+    });
+    sellPoll = setInterval(sell, 4000);
   } else {
     bittrex.buylimit({market: coin, quantity: shares, rate: coinPrice}, (data,err) => {
       if(err) {
@@ -216,12 +239,46 @@ function pollForSellComplete(uuid) {
           exit(`sell order cancel was initiated by user`);
         } else {
           clearInterval(sellOrderPoll);
+          var sellTotal = data.result.Price * 0.995;
+          var buyTotal = filledPrice * shares;
+          var profitTotal = sellTotal - buyTotal;
+          var profitPercent = ((sellTotal / buyTotal) - 1) * 100;
+          if (profitTotal > 0) {
+            console.log(`\nTotal Profit: Ƀ${displaySats(profitTotal)} (${profitPercent.toFixed(2)}%)\n\n`)
+          } else {
+            console.log(`\nTotal Loss: Ƀ${displaySats(profitTotal)} (${profitPercent.toFixed(2)}%)\n\n`)
+          }
           exit(`SELL ORDER FILLED at Ƀ${displaySats(data.result.Price)}!`);
         }
       }
     });
   },2000);
 }
+
+/**
+* sellLow - sells immediately at market rate
+**/
+
+function sellLow() {
+  bittrex.getorderbook({market: coin,type: 'buy'}, (data,err) => {
+    if(err) {
+      console.log(`something went wrong with getOrderBook: ${err.message}`);
+      return false;
+    } else {
+      sellPrice = data.result[0].Rate * 0.8;
+      console.log(`Panic selling at Ƀ${displaySats(sellPrice)}`);
+      bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
+        if(err) {
+          exit(`something went wrong with sellLimit: ${err.message}`);
+        } else {
+          clearInterval(sellPoll);
+          pollForSellComplete(data.result.uuid);
+        }
+      });
+    }
+  });
+}
+
 
 function sell() {
   let average_price = 0;
