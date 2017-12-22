@@ -31,9 +31,12 @@ node pumpbot.js -k YourAPIKey -s YourAPISecret <coin>
 2. You can hardcode it into the application in config.js
 ```javascript
   // READ ONLY KEY
+
   api_key: '', // api key for bittrex API
   api_secret: '', // api secret for bittrex API
-  // TRADE KEY
+
+  // LIVE TRADE KEY
+
   // api_key: '',
   // api_secret: '',
 ```
@@ -50,16 +53,17 @@ cp config.example.js config.js
 ```
 
 ```javascript
-  investment_percentage: .5, //how much of your current bittrex wallet do you want to invest
-  no_buy_threshold_percentage: .2, //fail the buy if this percentage threshold has passed
-  no_buy_threshold_time: 3, //time history (in minutes, max 10) to fail the buy if threshold is passed
-  market_buy_inflation: .15, //set the market buy to currentPrice + inflation percentage
-  disable_prompt: false, //bypass the 'are you sure?' before submitting the buy
-  auto_sell: true, //automatically sell when the desired_return is triggered
-  desired_return: .2, //percentage return expected when initiating a sell
+  investment_percentage: .5, // how much of your current bittrex wallet do you want to invest
+  no_buy_threshold_percentage: .2, // fail the buy if this percentage threshold has passed
+  no_buy_threshold_time: 3, // time history (in minutes, max 10) to fail the buy if threshold is passed
+  market_buy_inflation: .15, // set the market buy to currentPrice + inflation percentage
+  disable_prompt: false, // bypass the 'are you sure?' before submitting the buy
+  auto_sell: true, // automatically sell when the desired_return is triggered
+  desired_return: .2, // percentage return expected when initiating a sell
   flat_limits: false, // desired_return and the stop loss figures use BTC price, not percentage
   include_fees: true, // include bittrex fees when calculating returns
-  fake_buy: true, //fake buy call to test the flow of the application
+  fake_buy: true, // fake buy call to test the flow of the application
+  show_orderdata: true // prints order data from bittrex while you have an active order polling
 ```
 **Any percentage configuration is set with decimals (i.e. .1 = 10%, .2 = 20% etc). If you set these using whole numbers, it will consider them over 100%**
 
@@ -90,6 +94,7 @@ Options: (options override config.js)
   -b                   Desired_return / Stop_loss are BTC prices, not percentage (e.g. 0.00025125)
   -y                   Skip the buy confirmation prompt and buy immediately
   --help               Display this message
+  --no-colors          Disable colors
 
 Example Usage:
 
@@ -125,9 +130,12 @@ Make sure you have the api key using your View-Only key and not the Trade key
 
 ```javascript
   // READ ONLY KEY
+
   api_key: '', // api key for bittrex API
   api_secret: '', // api secret for bittrex API
-  // TRADE KEY
+
+  // LIVE TRADE KEY
+
   // api_key: '',
   // api_secret: '',
 ```
@@ -145,9 +153,12 @@ Make sure you have the api key using your Trade key
 
 ```javascript
   // READ ONLY KEY
-  //api_key: '', // api key for bittrex API
-  //api_secret: '', // api secret for bittrex API
-  // TRADE KEY
+
+  // api_key: '', // api key for bittrex API
+  // api_secret: '', // api secret for bittrex API
+
+  // LIVE TRADE KEY
+
   api_key: '',
   api_secret: '',
 ```
@@ -160,7 +171,7 @@ This bot can be configured to automatically sell after your purchase has been ma
   desired_return: .5, //percentage return expected when initiating a sell
 ```
 After the buy, the bot will monitor for updates in the price until a profit of the desired_return is hit. If it does not hit this point, it will not sell.
-I would not recommend relying on the selling mechanism of this bot. I recommend you set the auto_sell and the desired_return to a reasonable amount and then rely on manually selling your position on bittrex
+I would not recommend relying on the selling mechanism of this bot. I recommend you set the auto_sell and the desired_return to a reasonable amount and then rely on manually selling your position on bittrex, but just in case, there is a panic sell implemented. While monitoring your trade, you can immediately sell by performing Ctrl + S in the window.
 
 ## Warning
 **Use this at your own risk. I am not responsible for any outcomes of the use of this bot**
