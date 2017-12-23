@@ -94,7 +94,6 @@ Options: (options override config.js)
   -b                   Desired_return / Stop_loss are BTC prices, not percentage (e.g. 0.00025125)
   -y                   Skip the buy confirmation prompt and buy immediately
   --help               Display this message
-  --no-colors          Disable colors
 
 Example Usage:
 
@@ -180,4 +179,3 @@ I would not recommend relying on the selling mechanism of this bot. I recommend 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
