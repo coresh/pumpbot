@@ -4,8 +4,10 @@
   "description": "auto-buy a coin with some config settings",
   "main": "pumpBot.js",
   "dependencies": {
+    "colors": "^1.1.2",
     "lodash": "^4.17.4",
-    "minimist": "^1.2.0"
+    "minimist": "^1.2.0",
+    "terminal-kit": "^1.14.3"
   },
   "devDependencies": {
     "node.bittrex.api": "^1.0.0"
