@@ -1,5 +1,4 @@
 var bittrex = require('node.bittrex.api');
-var colors = require('colors/safe');
 var term = require( 'terminal-kit' ).terminal;
 const readline = require('readline');
 let _ = require('lodash');
@@ -15,7 +14,7 @@ const justCoin = str2.toUpperCase();
 
 term.windowTitle('BITTREX PUMPBOT')
 term.reset();
-term.scrollingRegion(17, 27);
+term.scrollingRegion(19, 29);
 
 if(parsedArgs['f']) {
   file = "./config."+parsedArgs['f'];
@@ -91,8 +90,11 @@ if(parsedArgs['_'].length == 0 || parsedArgs['help']) {
 let coinPrice;
 let latestAsk;
 let filledPrice;
+let counter;
+counter = 0;
 
 checkValidInvestment();
+checkValidWindowSize();
 
 bittrex.getbalance({ currency : 'BTC' },( data, err ) => {
   if(err) {
@@ -107,20 +109,23 @@ bittrex.getbalance({ currency : 'BTC' },( data, err ) => {
 **/
 function getCoinStats() {
   term.moveTo(1, 1, `Coin:`);
-  term.moveTo.cyan(16, 1, `${justCoin}`)
+  term.moveTo.brightCyan(16, 1, `${justCoin}`)
   bittrex.getticker( { market : coin },( data, err ) => {
     if(err) {
       exit(`Something went wrong with getTicker: ${err.message}`);
     } else {
       term.moveTo(1, 3, `Current Ask: `);
-      term.moveTo.green(16, 3, `Ƀ ${displaySats(data.result.Ask)}`);
+      term.moveTo.brightGreen(16, 3, `Ƀ ${displaySats(data.result.Ask)}`);
       term.moveTo(1, 4, `Current Bid: `);
-      term.moveTo.green(16, 4, `Ƀ ${displaySats(data.result.Bid)}`);
+      term.moveTo.brightGreen(16, 4, `Ƀ ${displaySats(data.result.Bid)}`);
       term.moveTo(1, 5, `Last Price:  `);
-      term.moveTo.green(16, 5, `Ƀ ${displaySats(data.result.Last)}`);
+      term.moveTo.brightGreen(16, 5, `Ƀ ${displaySats(data.result.Last)}`);
       
       if (flat_limits && stop_loss > data.result.Bid) {
-        exit('Stop loss of ' + colors.green('Ƀ '+ stop_loss) + ' is higher than the current bid of ' + colors.green('Ƀ '+data.result.Bid) + ' - would sell immediately.');
+        term.nextLine(2);
+        term('Stop loss of ').brightGreen('Ƀ '+ stop_loss) (' is higher than the current bid of ').brightGreen('Ƀ '+data.result.Bid) (' - would sell immediately.');
+        term.nextLine(2);
+        process.exit();
       }
       coinPrice = data.result.Ask + (data.result.Ask * config.market_buy_inflation);
       latestAsk = data.result.Ask;
@@ -147,11 +152,11 @@ function checkCandle() {
 
       if(highAskDelta.toFixed(2).indexOf("-") > -1)
       {
-        term.moveTo(1, 7, colors.cyan(`${coin}`) + ` has a ` + colors.red(`${highAskDelta.toFixed(2)} %`) + ` loss in the past ${data.result,config.no_buy_threshold_time} minutes`);
+        term.moveTo(1, 7).brightCyan(`${coin}`) (` has a `).brightRed(`${highAskDelta.toFixed(2)} %`) (` loss in the past ${data.result,config.no_buy_threshold_time} minutes`);
       }
       else
       {
-        term.moveTo(1, 7, colors.cyan(`${coin}`) + ` has a ` + colors.green(`${highAskDelta.toFixed(2)} %`) + ` gain in the past ${data.result,config.no_buy_threshold_time} minutes`);
+        term.moveTo(1, 7).brightCyan(`${coin}`) (` has a `).brightGreen(`${highAskDelta.toFixed(2)} %`) (` gain in the past ${data.result,config.no_buy_threshold_time} minutes`);
       }
 
       if(!shares) {
@@ -159,7 +164,10 @@ function checkCandle() {
       }
       showPrompt();
     } else {
-      exit(colors.cyan(`${coin}`) + ` has increased past the ` + colors.green(`${config.no_buy_threshold_percentage * 100} %`) + ` threshold (at ` + colors.green(`${highAskDelta.toFixed(2)} %)`) + ` no buy will be made.`);
+      term.nextLine(2);
+      term.brightCyan(`${coin}`) (` has increased past the `).brightGreen(`${config.no_buy_threshold_percentage * 100} %`) (` threshold (at `).brightGreen(`${highAskDelta.toFixed(2)} %)`) (` no buy will be made.`);
+      term.nextLine(2);
+      process.exit;
     }
   });
 }
@@ -174,12 +182,14 @@ function showPrompt() {
       output: process.stdout
     });
     term.moveTo(1, 9);
-    rl.question(`Are you sure you want to purchase ` + colors.green(`${shares.toFixed(8)}`) + colors.cyan(` ${justCoin}`) + ` at ` + colors.green(`Ƀ ${coinPrice.toFixed(8)}`) + `? `, (answer) => 
+    term(`You are purchasing `).brightGreen(`${shares.toFixed(8)}`).brightCyan(` ${justCoin}`) (` at `).brightGreen(`Ƀ ${coinPrice.toFixed(8)}`);
+    term.nextLine(2);
+    rl.question(`Are you sure want to do this? (Y/N) `, (answer) => 
     {
       if(answer === 'yes' || answer === 'y' || answer === 'Yes' || answer === 'yy' || answer === 'Y' || answer === 'YES') { // Typos happen, can be lost profit during a pump.
         purchase();
       } else {
-        term.moveTo(1, 11, `Purchase cancelled by user.\n\n`);
+        term.moveTo(1, 13, `Purchase cancelled by user.\n\n`);
         rl.close();
       }
     });
@@ -211,7 +221,7 @@ function pollOrder(orderUUID) {
           if(config.auto_sell) {
             filledPrice = data.result.PricePerUnit;
             term.nextLine(1);
-            term(`ORDER FILLED at ` + colors.green(`Ƀ ${displaySats(data.result.PricePerUnit)}`));
+            term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}`);
             term.nextLine(1);
             clearInterval(buyOrderPoll);
             readline.emitKeypressEvents(process.stdin);
@@ -223,16 +233,20 @@ function pollOrder(orderUUID) {
               } else if (key.ctrl && key.name === 's') {
                 term(`\n`);
                 term.right(2);
-                term.red('PANIC BUTTON DETECTED, SELLING IMMEDIATELY\n\n');
+                term.brightCyan('PANIC BUTTON DETECTED, SELLING IMMEDIATELY\n\n');
                 term.nextLine(4);
                 sellLow();
               }
             });
-            term.moveTo(1, 26);
+            term.moveTo(1, 28);
+            term.hideCursor();
             tradeType = 'LIVE TRADE';
             sellPoll = setInterval(sell, 4000);
           } else {
-            exit(`ORDER FILLED at ` + colors.green(`Ƀ ${displaySats(data.result.PricePerUnit)}`));
+            term.nextLine(2);
+            term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}`);
+            term.nextLine(2);
+            process.exit();
           }
         }
       }
@@ -247,7 +261,7 @@ function purchase() {
   if(config.fake_buy) {
     filledPrice = latestAsk;
     term.nextLine(1);
-    term(`ORDER FILLED at ` + colors.green(`Ƀ ${displaySats(filledPrice)}`));
+    term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(filledPrice)}`);
     term.nextLine(1);
     readline.emitKeypressEvents(process.stdin);
     process.stdin.setRawMode(true);
@@ -258,35 +272,16 @@ function purchase() {
       } else if (key.ctrl && key.name === 's') {
         term(`\n`);
         term.right(2);
-        term.red('PANIC BUTTON DETECTED, SELLING IMMEDIATELY\n\n');
+        term.brightCyan('PANIC BUTTON DETECTED, SELLING IMMEDIATELY\n\n');
         term.right(2);
         term(`But not really because this was a fake buy.\n`);
         term.nextLine(4);
         process.exit();
       }
     });
-    /*
-    if (flat_limits) {
-      erm.nextLine(1);
-      term(`Polling For: `);
-      //term.right(4);
-      term.green(`Ƀ ${displaySats(desired_return)}`);
-      term.nextLine(2);
-      term(`==================== FAKE BUY ====================`);
-      term.nextLine(2);
-    }
-    else {
-      term.nextLine(1);
-      term(`Polling For: `);
-      //term.right(4);
-      term.green(`${desired_return * 100} %`);
-      term.nextLine(2);
-      term(`==================== FAKE BUY ====================`);
-      term.nextLine(2);
-      
-    }*/
 
-    term.moveTo(1, 26);
+    term.moveTo(1, 28);
+    term.hideCursor();
     tradeType = ' FAKE BUY ';
     sellPoll = setInterval(sell, 4000);
   } else {
@@ -323,18 +318,17 @@ function pollForSellComplete(uuid) {
 
           if (profitTotal > 0) {
             term.nextLine(1);
-            term(`Total Profit: `).green(`Ƀ ${displaySats(profitTotal)}`);
-            term.right(4);
-            term.green(`${profitPercent.toFixed(2)} %`);
+            term(`Total Profit: `).brightGreen(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightGreen(`${profitPercent.toFixed(2)} %`);
             term.nextLine(1);
           } else {
             term.nextLine(1);
-            term(`Total Profit: `).red(`Ƀ ${displaySats(profitTotal)}`);
-            term.right(4);
-            term.red(`${profitPercent.toFixed(2)} %`);
+            term(`Total Profit: `).brightRed(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightRed(`${profitPercent.toFixed(2)} %`);
             term.nextLine(1);
           }
-          exit(`SELL ORDER FILLED at ` + colors.green(`Ƀ ${displaySats(data.result.Price)}\n`));
+          term.nextLine(2);
+          term(`SELL ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.Price)}\n`);
+          term.nextLine(2);
+          process.exit();
         }
       }
     });
@@ -352,8 +346,9 @@ function sellLow() {
       return false;
     } else {
       sellPrice = data.result[0].Rate * 0.8;
-      term.nextLine(1);
-      term(`Panic selling at ` + colors.green(`Ƀ ${displaySats(sellPrice)}`));
+      //term.nextLine(1);
+      term.moveTo(1, 32);
+      term(`Panic selling at `).brightGreen(`Ƀ ${displaySats(sellPrice)}`);
       bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
         if(err) {
           exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -377,19 +372,20 @@ function sell() {
   let gainSum = 0;
   let stopPrice = 0;
 
+  //term.scrollingRegion(19, 29);
+  
   term.saveCursor();
   if (flat_limits) {
-    //term.nextLine(1);
-    term.moveTo(1, 13, `Polling For: `);
-    term.green(`Ƀ ${displaySats(desired_return)}`);
+    term.moveTo(1, 15, `Polling For: `);
+    term.brightGreen(`Ƀ ${displaySats(desired_return)}`);
     term.nextLine(2);
     term(`=================== ` + tradeType + ` ===================`);
     term.nextLine(2);
   }
   else {
     //term.nextLine(1);
-    term.moveTo(1, 13, `Polling For: `);
-    term.green(`${desired_return * 100} %`);
+    term.moveTo(1, 15, `Polling For: `);
+    term.brightGreen(`${desired_return * 100} %`);
     term.nextLine(2);
     term(`=================== ` + tradeType + ` ===================`);
     term.nextLine(2);
@@ -403,12 +399,14 @@ function sell() {
       return false;
     } else {
       term.saveCursor();
-      term.moveTo(1, 28, `========= 'Ctrl + S' to IMMEDIATELY SELL =========`);
+      term.moveTo(3, 28, `${counter}`);
+      counter = counter + 1;
+      term.moveTo(1, 30, `========= 'Ctrl + S' to IMMEDIATELY SELL =========`);
       term.restoreCursor();
       sellPrice = data.result[0].Rate;
-      term.right(2);
-      term(`Sell Eval: `);
-      term.green(`Ƀ ${displaySats(sellPrice)}`);
+      term.right(12);
+      term(`Price: `);
+      term.brightGreen(`Ƀ ${displaySats(sellPrice)}`);
 
       _.forEach(data.result, (order) => {
         //is initial volume higher than purchased volume?
@@ -428,14 +426,14 @@ function sell() {
           if(avgGain.toFixed(2).indexOf("-") > -1)
           {
             term.right(4);
-            term(`Total Gain: `);
-            term.red(`${avgGain.toFixed(2)} %\n`);
+            term(`Gain: `);
+            term.brightRed(`${avgGain.toFixed(2)} %\n`);
           }
           else
           {
             term.right(4);
-            term(`Total Gain: `);
-            term.green(`${avgGain.toFixed(2)} %\n`);
+            term(`Gain: `);
+            term.brightGreen(`${avgGain.toFixed(2)} %\n`);
           }
 
           if (flat_limits) {
@@ -444,7 +442,7 @@ function sell() {
               if(sellPrice < stop_loss) {
                 stopPrice = sellPrice * 0.9;
                 term.nextLine(1);
-                term(`STOP LOSS TRIGGERED, SELLING FOR ` + colors.red(`Ƀ ${displaySats(sellPrice)}`) + ` with order at ` + colors.red(`Ƀ ${displaySats(stopPrice)}`));
+                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`)(` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}`);
                 bittrex.selllimit({market: coin, quantity: shares, rate: stopPrice}, (data,err) => {
                   if(err) {
                     exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -459,7 +457,7 @@ function sell() {
 
             if(sellPrice >= desired_return) {
               term.nextLine(1);
-              term(`SELLING FOR ` + colors.red(`Ƀ ${displaySats(sellPrice)}`));
+              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}`);
               bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
                 if(err) {
                   exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -478,7 +476,7 @@ function sell() {
               if(avgGain < (stop_loss * -100)) {
                 stopPrice = sellPrice * 0.9;
                 term.nextLine(1);
-                term(`STOP LOSS TRIGGERED, SELLING FOR ` + colors.red(`Ƀ ${displaySats(sellPrice)}`) + ` with order at ` + colors.red(`Ƀ ${displaySats(stopPrice)}`));
+                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`) (` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}`);
                 bittrex.selllimit({market: coin, quantity: shares, rate: stopPrice}, (data,err) => {
                   if(err) {
                     exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -492,7 +490,7 @@ function sell() {
             }
             if(avgGain >= (desired_return * 100)) {
               term.nextLine(1);
-              term(`SELLING FOR ` + colors.red(`Ƀ ${displaySats(sellPrice)}`));
+              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}`);
               bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
                 if(err) {
                   exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -503,7 +501,6 @@ function sell() {
               });
               return false;
             } else {
-              //term.moveTo(1, 18, `'Ctrl + S' to IMMEDIATELY SELL.`)
               return false;
             }
           }
@@ -515,7 +512,7 @@ function sell() {
 
 function exit(message) {
   if(message) {
-    term.nextLine(4);
+    term.nextLine(2);
     term(message);
     term.nextLine(2);
   }
@@ -528,6 +525,20 @@ function displaySats(number) {
 
 function checkValidInvestment() {
   if(config.investment_percentage + config.market_buy_inflation >= 1) {
-    exit(`Investment % and Inflation % totals over 100%.\nPlease adjust this in your config file.`);
+    term.nextLine(1);
+    term(`Investment % and Inflation % totals over 100%.\nPlease adjust this in your config file.`);
+    term.nextLine(2);
+    process.exit();
+  }
+}
+
+function checkValidWindowSize() {
+  if(process.stdout.columns < 52 || process.stdout.rows < 34) {
+    term.nextLine(1);
+    term(`Your window size must be at least 52 x 34 (rows x columns) for it to display properly`);
+    term.nextLine(1);
+    term(`Please resize your window by making it larger and try again (height matters most)`)
+    term.nextLine(1);
+    process.exit();
   }
 }
