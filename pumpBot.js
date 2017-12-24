@@ -94,7 +94,7 @@ let counter;
 counter = 0;
 
 checkValidInvestment();
-checkValidWindowSize();
+//checkValidWindowSize();
 
 bittrex.getbalance({ currency : 'BTC' },( data, err ) => {
   if(err) {
