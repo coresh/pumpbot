@@ -12,8 +12,9 @@ var str2 = '' + parsedArgs['_'].join('');
 const coin = str1.toUpperCase();
 const justCoin = str2.toUpperCase();
 
-term.windowTitle('BITTREX PUMPBOT')
+term.windowTitle('Bittrex PumpBot')
 term.reset();
+term.eraseDisplay();
 term.scrollingRegion(19, 29);
 
 if(parsedArgs['f']) {
@@ -94,7 +95,7 @@ let counter;
 counter = 0;
 
 checkValidInvestment();
-//checkValidWindowSize();
+// checkValidWindowSize();
 
 bittrex.getbalance({ currency : 'BTC' },( data, err ) => {
   if(err) {
@@ -112,6 +113,7 @@ function getCoinStats() {
   term.moveTo.brightCyan(16, 1, `${justCoin}`)
   bittrex.getticker( { market : coin },( data, err ) => {
     if(err) {
+      term.nextLine(1);
       exit(`Something went wrong with getTicker: ${err.message}`);
     } else {
       term.moveTo(1, 3, `Current Ask: `);
@@ -122,9 +124,9 @@ function getCoinStats() {
       term.moveTo.brightGreen(16, 5, `Ƀ ${displaySats(data.result.Last)}`);
       
       if (flat_limits && stop_loss > data.result.Bid) {
-        term.nextLine(2);
+        term.nextLine(1);
         term('Stop loss of ').brightGreen('Ƀ '+ stop_loss) (' is higher than the current bid of ').brightGreen('Ƀ '+data.result.Bid) (' - would sell immediately.');
-        term.nextLine(2);
+        term.nextLine(4);
         process.exit();
       }
       coinPrice = data.result.Ask + (data.result.Ask * config.market_buy_inflation);
@@ -143,6 +145,7 @@ function checkCandle() {
     tickInterval: 'oneMin'
   }, function(data, err) {
     if (err) {
+      term.nextLine(1);
       return exit(`Something went wrong with getCandles: ${err.message}`);
     }
     let candles = _.takeRight(data.result,config.no_buy_threshold_time);
@@ -194,6 +197,7 @@ function showPrompt() {
       }
     });
   } else {
+    term.nextLine(2);
     purchase();
   }
 }
@@ -202,8 +206,31 @@ function showPrompt() {
 * pollOrder - poll the purchase order until it is filled
 **/
 function pollOrder(orderUUID) {
+
+  term.saveCursor();
+
+  if (flat_limits) {
+    term.moveTo(1, 15);
+    term.nextLine(2);
+    term(`===================== ORDER STATUS =====================`);
+    term.nextLine(2);
+  }
+  else {
+    term.moveTo(1, 15);
+    term.nextLine(2);
+    term(`===================== ORDER STATUS =====================`);
+    term.nextLine(2);
+  }
+
+  term.moveTo(3, 28, `${counter}`);
+  counter = counter + 1;
+  //term.moveTo(1, 30, `========= 'Ctrl + Up' to RAISE YOUR BUY ORDER  =========`); NOT YET
+  term.moveTo(1, 30, `========================================================`);
+
+  term.restoreCursor();
+
   if(show_orderdata) {
-    term(`Order UUID: ${orderUUID}`);
+    term(`Order UUID: ${orderUUID}\n`);
   }
   var buyOrderPoll = setInterval(() => {
     bittrex.getorder({uuid: orderUUID}, (data,err) => {
@@ -214,15 +241,14 @@ function pollOrder(orderUUID) {
           term(data);
         }*/
         if(data.result.IsOpen) {
-          term(`Buy order is not yet filled.`);
+          term(`Buy order is not yet filled.\n`);
         } else if(data.result.CancelInitiated) {
           exit(`Buy order cancel initiated by user.`);
         } else {
           if(config.auto_sell) {
             filledPrice = data.result.PricePerUnit;
-            term.nextLine(1);
-            term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}`);
-            term.nextLine(1);
+            term.moveTo(1,13);
+            term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}\n`);
             clearInterval(buyOrderPoll);
             readline.emitKeypressEvents(process.stdin);
             process.stdin.setRawMode(true);
@@ -234,18 +260,21 @@ function pollOrder(orderUUID) {
                 term(`\n`);
                 term.right(2);
                 term.brightCyan('PANIC BUTTON DETECTED, SELLING IMMEDIATELY\n\n');
-                term.nextLine(4);
                 sellLow();
               }
             });
+
+            term.moveTo(1, 14);
+            term.eraseDisplayBelow();
+
             term.moveTo(1, 28);
             term.hideCursor();
             tradeType = 'LIVE TRADE';
             sellPoll = setInterval(sell, 4000);
           } else {
-            term.nextLine(2);
-            term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}`);
-            term.nextLine(2);
+            term.right(2);
+            term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}\n`);
+            term.nextLine(4);
             process.exit();
           }
         }
@@ -261,8 +290,7 @@ function purchase() {
   if(config.fake_buy) {
     filledPrice = latestAsk;
     term.nextLine(1);
-    term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(filledPrice)}`);
-    term.nextLine(1);
+    term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(filledPrice)}\n`);
     readline.emitKeypressEvents(process.stdin);
     process.stdin.setRawMode(true);
     process.stdin.on('keypress', (str, key) => {
@@ -287,8 +315,12 @@ function purchase() {
   } else {
     bittrex.buylimit({market: coin, quantity: shares, rate: coinPrice}, (data,err) => {
       if(err) {
+        term.nextLine(1);
         exit(`Something went wrong with buyLimit: ${err.message}`);
       } else {
+        term.moveTo(1, 28);
+        term.hideCursor();
+
         pollOrder(data.result.uuid);
       }
     });
@@ -305,8 +337,8 @@ function pollForSellComplete(uuid) {
         exit(`Something went wrong with getOrderSell: ${err.message}`);
       } else {
         if(data.result.isOpen) {
-          term.nextLine(1);
-          term(`Sell order not yet filled.`);
+          term.right(2);
+          term(`Sell order not yet filled.\n`);
         } else if(data.result.CancelInitiated) {
           exit(`Sell order cancel was initiated by user.`);
         } else {
@@ -317,17 +349,15 @@ function pollForSellComplete(uuid) {
           var profitPercent = ((sellTotal / buyTotal) - 1) * 100;
 
           if (profitTotal > 0) {
-            term.nextLine(1);
-            term(`Total Profit: `).brightGreen(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightGreen(`${profitPercent.toFixed(2)} %`);
-            term.nextLine(1);
+            term.right(2);
+            term(`Total Profit: `).brightGreen(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightGreen(`${profitPercent.toFixed(2)} %\n\n`);
           } else {
-            term.nextLine(1);
-            term(`Total Profit: `).brightRed(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightRed(`${profitPercent.toFixed(2)} %`);
-            term.nextLine(1);
+            term.right(2);
+            term(`Total Profit: `).brightRed(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightRed(`${profitPercent.toFixed(2)} %\n\n`);
           }
-          term.nextLine(2);
+          term.right(2);
           term(`SELL ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.Price)}\n`);
-          term.nextLine(2);
+          term.nextLine(4);
           process.exit();
         }
       }
@@ -341,14 +371,12 @@ function pollForSellComplete(uuid) {
 function sellLow() {
   bittrex.getorderbook({market: coin,type: 'buy'}, (data,err) => {
     if(err) {
-      term.nextLine(1);
-      term(`Something went wrong with getOrderBook: ${err.message}`);
+      term(`Something went wrong with getOrderBook: ${err.message}\n`);
       return false;
     } else {
       sellPrice = data.result[0].Rate * 0.8;
-      //term.nextLine(1);
-      term.moveTo(1, 32);
-      term(`Panic selling at `).brightGreen(`Ƀ ${displaySats(sellPrice)}`);
+      term.right(2);
+      term(`Panic selling at `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n\n`);
       bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
         if(err) {
           exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -361,7 +389,30 @@ function sellLow() {
   });
 }
 
+/**
+* cancel - (todo) initiates a cancel request for last order made
+**/
+function cancel() {
+  bittrex.cancel({uuid: orderUUID}, (data,err) => {
+    if(err) {
+      exit(`Something went wrong with cancelling your order: ${err.message}`);
+    } else {
+      term(`Previous order cancelled.\n`);
+      buyAgain();
+    }
+  });
+}
 
+/**
+* buyAgain - (todo) rebuys at new market price
+**/
+function buyAgain() {
+
+}
+
+/**
+* sell - mitochondria is the powerhouse of the cell
+**/
 function sell() {
   let average_price = 0;
   let total_price = 0;
@@ -372,37 +423,38 @@ function sell() {
   let gainSum = 0;
   let stopPrice = 0;
 
-  //term.scrollingRegion(19, 29);
-  
   term.saveCursor();
+
   if (flat_limits) {
     term.moveTo(1, 15, `Polling For: `);
     term.brightGreen(`Ƀ ${displaySats(desired_return)}`);
     term.nextLine(2);
-    term(`=================== ` + tradeType + ` ===================`);
+    term(`====================== ` + tradeType + ` ======================`);
     term.nextLine(2);
   }
   else {
-    //term.nextLine(1);
     term.moveTo(1, 15, `Polling For: `);
     term.brightGreen(`${desired_return * 100} %`);
     term.nextLine(2);
-    term(`=================== ` + tradeType + ` ===================`);
+    term(`====================== ` + tradeType + ` ======================`);
     term.nextLine(2);
   }
+
   term.restoreCursor();
 
   bittrex.getorderbook({market: coin,type: 'buy'}, (data,err) => {
     if(err) {
-      term.nextLine(1);
-      term(`Something went wrong with getOrderBook: ${err.message}`);
+      term(`Something went wrong with getOrderBook: ${err.message}\n`);
       return false;
     } else {
       term.saveCursor();
+
       term.moveTo(3, 28, `${counter}`);
       counter = counter + 1;
-      term.moveTo(1, 30, `========= 'Ctrl + S' to IMMEDIATELY SELL =========`);
+      term.moveTo(1, 30, `============ 'Ctrl + S' to IMMEDIATELY SELL ============`);
+
       term.restoreCursor();
+
       sellPrice = data.result[0].Rate;
       term.right(12);
       term(`Price: `);
@@ -425,13 +477,13 @@ function sell() {
 
           if(avgGain.toFixed(2).indexOf("-") > -1)
           {
-            term.right(4);
+            term.right(7);
             term(`Gain: `);
             term.brightRed(`${avgGain.toFixed(2)} %\n`);
           }
           else
           {
-            term.right(4);
+            term.right(7);
             term(`Gain: `);
             term.brightGreen(`${avgGain.toFixed(2)} %\n`);
           }
@@ -441,8 +493,8 @@ function sell() {
             if (stop_loss) {
               if(sellPrice < stop_loss) {
                 stopPrice = sellPrice * 0.9;
-                term.nextLine(1);
-                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`)(` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}`);
+                term.right(2);
+                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`)(` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}\n`);
                 bittrex.selllimit({market: coin, quantity: shares, rate: stopPrice}, (data,err) => {
                   if(err) {
                     exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -456,8 +508,9 @@ function sell() {
             }
 
             if(sellPrice >= desired_return) {
-              term.nextLine(1);
-              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}`);
+              term(`\n`);
+              term.right(2);
+              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n\n`);
               bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
                 if(err) {
                   exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -475,8 +528,9 @@ function sell() {
             if (stop_loss) {
               if(avgGain < (stop_loss * -100)) {
                 stopPrice = sellPrice * 0.9;
-                term.nextLine(1);
-                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`) (` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}`);
+                term(`\n`);
+                term.right(2);
+                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`) (` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}\n\n`);
                 bittrex.selllimit({market: coin, quantity: shares, rate: stopPrice}, (data,err) => {
                   if(err) {
                     exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -489,8 +543,9 @@ function sell() {
               }
             }
             if(avgGain >= (desired_return * 100)) {
-              term.nextLine(1);
-              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}`);
+              term(`\n`);
+              term.right(2);
+              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n\n`);
               bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
                 if(err) {
                   exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -512,9 +567,9 @@ function sell() {
 
 function exit(message) {
   if(message) {
-    term.nextLine(2);
     term(message);
-    term.nextLine(2);
+    term.nextLine(4);
+    term.hideCursor();
   }
   process.exit();
 }
@@ -524,21 +579,22 @@ function displaySats(number) {
 }
 
 function checkValidInvestment() {
-  if(config.investment_percentage + config.market_buy_inflation >= 1) {
+  if(config.investment_percentage + config.market_buy_inflation >= .99) {
     term.nextLine(1);
-    term(`Investment % and Inflation % totals over 100%.\nPlease adjust this in your config file.`);
+    term(`Investment % + Inflation % + (Fee) totals over 100%.\nPlease lower one of first two in your config file.`);
     term.nextLine(2);
     process.exit();
   }
 }
 
+/*
 function checkValidWindowSize() {
-  if(process.stdout.columns < 52 || process.stdout.rows < 34) {
+  if(process.stdout.columns < 60 || process.stdout.rows < 34) {
     term.nextLine(1);
-    term(`Your window size must be at least 52 x 34 (rows x columns) for it to display properly`);
+    term(`Your window size must be at least 60 x 34 (rows x columns) for it to display properly`);
     term.nextLine(1);
     term(`Please resize your window by making it larger and try again (height matters most)`)
     term.nextLine(1);
     process.exit();
   }
-}
+}*/
