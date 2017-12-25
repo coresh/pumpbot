@@ -337,6 +337,7 @@ function pollForSellComplete(uuid) {
         exit(`Something went wrong with getOrderSell: ${err.message}`);
       } else {
         if(data.result.isOpen) {
+          term.right(2);
           term(`Sell order not yet filled.\n`);
         } else if(data.result.CancelInitiated) {
           exit(`Sell order cancel was initiated by user.`);
@@ -349,7 +350,7 @@ function pollForSellComplete(uuid) {
 
           if (profitTotal > 0) {
             term.right(2);
-            term(`  Total Profit: `).brightGreen(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightGreen(`${profitPercent.toFixed(2)} %\n\n`);
+            term(`Total Profit: `).brightGreen(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightGreen(`${profitPercent.toFixed(2)} %\n\n`);
           } else {
             term.right(2);
             term(`Total Profit: `).brightRed(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightRed(`${profitPercent.toFixed(2)} %\n\n`);
@@ -455,7 +456,7 @@ function sell() {
       term.restoreCursor();
 
       sellPrice = data.result[0].Rate;
-      term.right(11);
+      term.right(12);
       term(`Price: `);
       term.brightGreen(`Ƀ ${displaySats(sellPrice)}`);
 
@@ -476,13 +477,13 @@ function sell() {
 
           if(avgGain.toFixed(2).indexOf("-") > -1)
           {
-            term.right(4);
+            term.right(7);
             term(`Gain: `);
             term.brightRed(`${avgGain.toFixed(2)} %\n`);
           }
           else
           {
-            term.right(4);
+            term.right(7);
             term(`Gain: `);
             term.brightGreen(`${avgGain.toFixed(2)} %\n`);
           }
@@ -492,6 +493,7 @@ function sell() {
             if (stop_loss) {
               if(sellPrice < stop_loss) {
                 stopPrice = sellPrice * 0.9;
+                term.right(2);
                 term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`)(` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}\n`);
                 bittrex.selllimit({market: coin, quantity: shares, rate: stopPrice}, (data,err) => {
                   if(err) {
@@ -506,7 +508,9 @@ function sell() {
             }
 
             if(sellPrice >= desired_return) {
-              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n`);
+              term(`\n`);
+              term.right(2);
+              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n\n`);
               bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
                 if(err) {
                   exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -524,7 +528,9 @@ function sell() {
             if (stop_loss) {
               if(avgGain < (stop_loss * -100)) {
                 stopPrice = sellPrice * 0.9;
-                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`) (` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}\n`);
+                term(`\n`);
+                term.right(2);
+                term(`STOP LOSS TRIGGERED, SELLING FOR `).brightRed(`Ƀ ${displaySats(sellPrice)}`) (` with order at `).brightRed(`Ƀ ${displaySats(stopPrice)}\n\n`);
                 bittrex.selllimit({market: coin, quantity: shares, rate: stopPrice}, (data,err) => {
                   if(err) {
                     exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -537,7 +543,9 @@ function sell() {
               }
             }
             if(avgGain >= (desired_return * 100)) {
-              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n`);
+              term(`\n`);
+              term.right(2);
+              term(`SELLING FOR `).brightGreen(`Ƀ ${displaySats(sellPrice)}\n\n`);
               bittrex.selllimit({market: coin, quantity: shares, rate: sellPrice}, (data,err) => {
                 if(err) {
                   exit(`Something went wrong with sellLimit: ${err.message}`);
@@ -581,9 +589,9 @@ function checkValidInvestment() {
 
 /*
 function checkValidWindowSize() {
-  if(process.stdout.columns < 52 || process.stdout.rows < 34) {
+  if(process.stdout.columns < 60 || process.stdout.rows < 34) {
     term.nextLine(1);
-    term(`Your window size must be at least 52 x 34 (rows x columns) for it to display properly`);
+    term(`Your window size must be at least 60 x 34 (rows x columns) for it to display properly`);
     term.nextLine(1);
     term(`Please resize your window by making it larger and try again (height matters most)`)
     term.nextLine(1);
