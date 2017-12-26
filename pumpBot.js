@@ -6,16 +6,12 @@ var parseArgs = require('minimist');
 let parsedArgs = parseArgs(process.argv.slice(2));
 let file;
 
-var tradeType;
 var str1 = 'BTC-' + parsedArgs['_'].join('');
 var str2 = '' + parsedArgs['_'].join('');
 const coin = str1.toUpperCase();
 const justCoin = str2.toUpperCase();
 
-term.windowTitle('Bittrex PumpBot')
-term.reset();
-term.eraseDisplay();
-term.scrollingRegion(19, 29);
+termReset();
 
 if(parsedArgs['f']) {
   file = "./config."+parsedArgs['f'];
@@ -25,6 +21,7 @@ if(parsedArgs['f']) {
 
 let config = require(file);
 
+var tradeType;
 var buyOrderPoll;
 var sellPoll;
 var sellOrderPoll;
@@ -34,10 +31,10 @@ let disable_prompt = config.disable_prompt;
 let apiKey = config.api_key || '';
 let apiSecret = config.api_secret || '';
 let desired_return = config.desired_return;
+let stop_loss = config.stop_loss;
 let include_fees = config.include_fees || false;
-let stop_loss;
 let flat_limits = config.flat_limits || false;
-let show_orderdata = config.show_orderdata || false;
+let show_uuid = config.show_uuid || false;
 
 if(parsedArgs['k']) {
   apiKey = parsedArgs['k'];
@@ -95,7 +92,6 @@ let counter;
 counter = 0;
 
 checkValidInvestment();
-// checkValidWindowSize();
 
 bittrex.getbalance({ currency : 'BTC' },( data, err ) => {
   if(err) {
@@ -129,6 +125,7 @@ function getCoinStats() {
         term.nextLine(4);
         process.exit();
       }
+      
       coinPrice = data.result.Ask + (data.result.Ask * config.market_buy_inflation);
       latestAsk = data.result.Ask;
       checkCandle();
@@ -206,30 +203,11 @@ function showPrompt() {
 * pollOrder - poll the purchase order until it is filled
 **/
 function pollOrder(orderUUID) {
-
   term.saveCursor();
-
-  if (flat_limits) {
-    term.moveTo(1, 15);
-    term.nextLine(2);
-    term(`===================== ORDER STATUS =====================`);
-    term.nextLine(2);
-  }
-  else {
-    term.moveTo(1, 15);
-    term.nextLine(2);
-    term(`===================== ORDER STATUS =====================`);
-    term.nextLine(2);
-  }
-
-  term.moveTo(3, 28, `${counter}`);
-  counter = counter + 1;
-  //term.moveTo(1, 30, `========= 'Ctrl + Up' to RAISE YOUR BUY ORDER  =========`); NOT YET
-  term.moveTo(1, 30, `========================================================`);
-
+  displayOrder();
   term.restoreCursor();
 
-  if(show_orderdata) {
+  if(show_uuid) {
     term(`Order UUID: ${orderUUID}\n`);
   }
   var buyOrderPoll = setInterval(() => {
@@ -237,9 +215,6 @@ function pollOrder(orderUUID) {
       if(err) {
         exit(`Something went wrong with getOrderBuy: ${err.message}`);
       } else {
-        /*if(show_orderdata) {
-          term(data);
-        }*/
         if(data.result.IsOpen) {
           term(`Buy order is not yet filled.\n`);
         } else if(data.result.CancelInitiated) {
@@ -263,17 +238,16 @@ function pollOrder(orderUUID) {
                 sellLow();
               }
             });
-
             term.moveTo(1, 14);
             term.eraseDisplayBelow();
-
             term.moveTo(1, 28);
             term.hideCursor();
             tradeType = 'LIVE TRADE';
             sellPoll = setInterval(sell, 4000);
           } else {
-            term.right(2);
+            term(`\n`);
             term(`ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.PricePerUnit)}\n`);
+            term(`auto_sell set to false, exiting...`);
             term.nextLine(4);
             process.exit();
           }
@@ -307,7 +281,6 @@ function purchase() {
         process.exit();
       }
     });
-
     term.moveTo(1, 28);
     term.hideCursor();
     tradeType = ' FAKE BUY ';
@@ -320,7 +293,6 @@ function purchase() {
       } else {
         term.moveTo(1, 28);
         term.hideCursor();
-
         pollOrder(data.result.uuid);
       }
     });
@@ -355,6 +327,7 @@ function pollForSellComplete(uuid) {
             term.right(2);
             term(`Total Profit: `).brightRed(`Ƀ ${displaySats(profitTotal)}`)(` | `).brightRed(`${profitPercent.toFixed(2)} %\n\n`);
           }
+
           term.right(2);
           term(`SELL ORDER FILLED at `).brightGreen(`Ƀ ${displaySats(data.result.Price)}\n`);
           term.nextLine(4);
@@ -390,27 +363,6 @@ function sellLow() {
 }
 
 /**
-* cancel - (todo) initiates a cancel request for last order made
-**/
-function cancel() {
-  bittrex.cancel({uuid: orderUUID}, (data,err) => {
-    if(err) {
-      exit(`Something went wrong with cancelling your order: ${err.message}`);
-    } else {
-      term(`Previous order cancelled.\n`);
-      buyAgain();
-    }
-  });
-}
-
-/**
-* buyAgain - (todo) rebuys at new market price
-**/
-function buyAgain() {
-
-}
-
-/**
 * sell - mitochondria is the powerhouse of the cell
 **/
 function sell() {
@@ -423,24 +375,7 @@ function sell() {
   let gainSum = 0;
   let stopPrice = 0;
 
-  term.saveCursor();
-
-  if (flat_limits) {
-    term.moveTo(1, 15, `Polling For: `);
-    term.brightGreen(`Ƀ ${displaySats(desired_return)}`);
-    term.nextLine(2);
-    term(`====================== ` + tradeType + ` ======================`);
-    term.nextLine(2);
-  }
-  else {
-    term.moveTo(1, 15, `Polling For: `);
-    term.brightGreen(`${desired_return * 100} %`);
-    term.nextLine(2);
-    term(`====================== ` + tradeType + ` ======================`);
-    term.nextLine(2);
-  }
-
-  term.restoreCursor();
+  displayTrade();
 
   bittrex.getorderbook({market: coin,type: 'buy'}, (data,err) => {
     if(err) {
@@ -448,11 +383,7 @@ function sell() {
       return false;
     } else {
       term.saveCursor();
-
-      term.moveTo(3, 28, `${counter}`);
-      counter = counter + 1;
-      term.moveTo(1, 30, `============ 'Ctrl + S' to IMMEDIATELY SELL ============`);
-
+      displayTip();
       term.restoreCursor();
 
       sellPrice = data.result[0].Rate;
@@ -471,18 +402,15 @@ function sell() {
           let gain = (order.Rate * purchasedVolume) / (filledPrice * purchasedVolume) - 1;
           gainSum+= gain;
           let avgGain = (gainSum/count) * 100;
-          
+
           if (include_fees)
             avgGain = avgGain - 0.5;
 
-          if(avgGain.toFixed(2).indexOf("-") > -1)
-          {
+          if(avgGain.toFixed(2).indexOf("-") > -1) {
             term.right(7);
             term(`Gain: `);
             term.brightRed(`${avgGain.toFixed(2)} %\n`);
-          }
-          else
-          {
+          } else {
             term.right(7);
             term(`Gain: `);
             term.brightGreen(`${avgGain.toFixed(2)} %\n`);
@@ -565,13 +493,25 @@ function sell() {
   });
 }
 
-function exit(message) {
-  if(message) {
-    term(message);
-    term.nextLine(4);
-    term.hideCursor();
-  }
-  process.exit();
+/**
+* cancel - (todo) initiates a cancel request for last order made
+**/
+function cancel() {
+  bittrex.cancel({uuid: orderUUID}, (data,err) => {
+    if(err) {
+      exit(`Something went wrong with cancelling your order: ${err.message}`);
+    } else {
+      term(`Previous order cancelled.\n`);
+      buy();
+    }
+  });
+}
+
+/**
+* buyAgain - (todo) rebuys at new market price
+**/
+function buy() {
+
 }
 
 function displaySats(number) {
@@ -587,14 +527,65 @@ function checkValidInvestment() {
   }
 }
 
-/*
-function checkValidWindowSize() {
-  if(process.stdout.columns < 60 || process.stdout.rows < 34) {
-    term.nextLine(1);
-    term(`Your window size must be at least 60 x 34 (rows x columns) for it to display properly`);
-    term.nextLine(1);
-    term(`Please resize your window by making it larger and try again (height matters most)`)
-    term.nextLine(1);
-    process.exit();
+function termReset() {
+  term.windowTitle('Bittrex PumpBot')
+  term.reset();
+  term.eraseDisplay();
+  term.scrollingRegion(19, 29);
+}
+
+function displayTip() {
+  term.moveTo(3, 28, `${counter}`);
+  counter = counter + 1;
+  term.moveTo(1, 30, `============ 'Ctrl + S' to IMMEDIATELY SELL ============`);
+}
+
+function displayTrade() {
+  if (flat_limits) {
+    term.saveCursor();
+    term.moveTo(1, 15, `Polling For: `);
+    term.brightGreen(`Ƀ ${displaySats(desired_return)}`);
+    term.nextLine(2);
+    term(`====================== ` + tradeType + ` ======================`);
+    term.nextLine(2);
+    term.restoreCursor();
   }
-}*/
+  else {
+    term.saveCursor();
+    term.moveTo(1, 15, `Polling For: `);
+    term.brightGreen(`${desired_return * 100} %`);
+    term.nextLine(2);
+    term(`====================== ` + tradeType + ` ======================`);
+    term.nextLine(2);
+    term.restoreCursor();
+  }
+}
+
+function displayOrder() {
+  if (flat_limits) {
+    term.moveTo(1, 15);
+    term.nextLine(2);
+    term(`===================== ORDER STATUS =====================`);
+    term.nextLine(2);
+  }
+  else {
+    term.moveTo(1, 15);
+    term.nextLine(2);
+    term(`===================== ORDER STATUS =====================`);
+    term.nextLine(2);
+  }
+
+  term.moveTo(3, 28, `${counter}`);
+  counter = counter + 1;
+  //term.moveTo(1, 30, `========= 'Ctrl + Up' to RAISE YOUR BUY ORDER  =========`); NOT YET
+  term.moveTo(1, 30, `========================================================`);
+}
+
+function exit(message) {
+  if(message) {
+    term(message);
+    term.nextLine(4);
+    term.hideCursor();
+  }
+  process.exit();
+}
