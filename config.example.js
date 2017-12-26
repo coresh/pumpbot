@@ -6,8 +6,8 @@ let config = {
 
   // LIVE TRADE KEY
 
-  // api_key: '', // api key for bittrex API
-  // api_secret: '', // api secret for bittrex API
+  // api_key: '',
+  // api_secret: '',
 
   // These are percentage values in decimal. This means that .01 = 1%, .4 = 40%, and 1 = 100%. Don't use whole numbers, or the bot won't like it.
 
