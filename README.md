@@ -53,17 +53,18 @@ cp config.example.js config.js
 ```
 
 ```javascript
-  investment_percentage: .5, // how much of your current bittrex wallet do you want to invest
-  no_buy_threshold_percentage: .2, // fail the buy if this percentage threshold has passed
-  no_buy_threshold_time: 3, // time history (in minutes, max 10) to fail the buy if threshold is passed
-  market_buy_inflation: .15, // set the market buy to currentPrice + inflation percentage
-  disable_prompt: false, // bypass the 'are you sure?' before submitting the buy
-  auto_sell: true, // automatically sell when the desired_return is triggered
-  desired_return: .2, // percentage return expected when initiating a sell
-  flat_limits: false, // desired_return and the stop loss figures use BTC price, not percentage
-  include_fees: true, // include bittrex fees when calculating returns
-  fake_buy: true, // fake buy call to test the flow of the application
-  show_orderdata: true // prints order data from bittrex while you have an active order polling
+  investment_percentage: .5, // What percent of your bittrex wallet you want to invest, in BTC
+  market_buy_inflation: .15, // This is to make sure your buy order gets in. Sets the market buy to current price + inflation percentage
+  desired_return: .2, // Continue polling until this percentage return is met
+  stop_loss: .1, // When the percentage threshold is hit, will initiate a market sell
+  flat_limits: false, // Use BTC price for desired_return and the stop loss figures, instead of percentage.
+  include_fees: true, // Include bittrex fees when calculating returns
+  auto_sell: true, // Automatically sell when the desired_return is triggered. If false, will exit immediately after buy order is filled
+  no_buy_threshold_percentage: .2, // Checks if percentage threshold has passed within no_buy_threshold time. If it does pass it, it will fail to buy
+  no_buy_threshold_time: 3, // Time history, (in minutes, max 10) to check against no_buy_threshold_percentage. i.e DOGE gained 20% within 3 minutes, the bot will not buy
+  disable_prompt: false, // Bypass the 'Are you sure?' before submitting the buy
+  fake_buy: true, // Fake buy call to test the flow of the application without using your real portfolio
+  show_uuid: true // Prints order uuid from bittrex while you have an active order polling
 ```
 **Any percentage configuration is set with decimals (i.e. .1 = 10%, .2 = 20% etc). If you set these using whole numbers, it will consider them over 100%**
 
@@ -166,8 +167,8 @@ When you run this script and tell the bot to purchase a coin, it will make a liv
 ### Selling
 This bot can be configured to automatically sell after your purchase has been made
 ```
-  auto_sell: true, //automatically sell when the desired_return is triggered
-  desired_return: .5, //percentage return expected when initiating a sell
+  auto_sell: true, // Automatically sell when the desired_return is triggered. If false, will exit immediately after buy order is filled
+  desired_return: .5, // Continue polling until this percentage return is met
 ```
 After the buy, the bot will monitor for updates in the price until a profit of the desired_return is hit. If it does not hit this point, it will not sell.
 I would not recommend relying on the selling mechanism of this bot. I recommend you set the auto_sell and the desired_return to a reasonable amount and then rely on manually selling your position on bittrex, but just in case, there is a panic sell implemented. While monitoring your trade, you can immediately sell by performing Ctrl + S in the window.
