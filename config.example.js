@@ -17,7 +17,7 @@ let config = {
   stop_loss: .1, // When the percentage threshold is hit, will initiate a market sell
   flat_limits: false, // Use BTC price for desired_return and the stop loss figures, instead of percentage.
   include_fees: true, // Include bittrex fees when calculating returns
-  auto_sell: true, // Automatically sell when the desired_return is triggered
+  auto_sell: true, // Automatically sell when the desired_return is triggered. If false, will exit immediately after buy order is filled
   
   // Safety
   
